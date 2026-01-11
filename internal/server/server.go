@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	// "github.com/Eahtasham/go-redis/internal/commands"
+	// "github.com/Eahtasham/go-redis/internal/protocol/resp"
 	"github.com/Eahtasham/go-redis/internal/netlayer"
 )
 
@@ -32,6 +34,13 @@ func New(addr string) *Server {
 
 func (s *Server) Start() error {
 	fmt.Println("Server Starting")
+	// commands.Register("PING", func(args []string) resp.Value {
+	// 	return resp.Value{
+	// 		Type: resp.SimpleString,
+	// 		Str:  "PONG",
+	// 	}
+	// })
+
 	return s.Listener.Serve(s.ctx, netlayer.HandleConn)
 }
 

@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/Eahtasham/go-redis/internal/commands"
 	"github.com/Eahtasham/go-redis/internal/protocol/resp"
 )
 
@@ -26,10 +27,8 @@ func HandleConn(conn net.Conn) {
 			return
 		}
 		fmt.Println(line)
-		writer.WriteValue(resp.Value{
-			Type: resp.SimpleString,
-			Str:  "Ok",
-		})
+		res := commands.Dispatch(line)
+		writer.WriteValue(res)
 	}
 
 }
