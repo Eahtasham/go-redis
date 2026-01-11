@@ -2,6 +2,7 @@ package netlayer
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 )
@@ -14,8 +15,10 @@ type Listener struct {
 func Newlistener(addr string) (*Listener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		// panic(err)
 		return nil, err
 	}
+	fmt.Println("listening on", addr)
 
 	return &Listener{ln: ln}, nil
 }

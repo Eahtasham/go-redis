@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"log"
 
 	"github.com/Eahtasham/go-redis/internal/netlayer"
 )
@@ -15,7 +17,11 @@ type Server struct {
 func New(addr string) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ln, _ := netlayer.Newlistener(addr)
+	ln, err := netlayer.Newlistener(addr)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return &Server{
 		Listener: ln,
@@ -25,6 +31,7 @@ func New(addr string) *Server {
 }
 
 func (s *Server) Start() error {
+	fmt.Println("Server Starting")
 	return s.Listener.Serve(s.ctx, netlayer.HandleConn)
 }
 

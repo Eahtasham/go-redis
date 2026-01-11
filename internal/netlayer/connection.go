@@ -1,10 +1,11 @@
 package netlayer
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"sync/atomic"
+
+	"github.com/Eahtasham/go-redis/internal/protocol/resp"
 )
 
 type ClientConn struct {
@@ -15,18 +16,20 @@ type ClientConn struct {
 func HandleConn(conn net.Conn) {
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
+	reader := resp.NewReader(conn)
+	writer := resp.NewWriter(conn)
 
 	for {
 		// Protocl layer will be implemented here
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadValue()
 		if err != nil {
 			return
 		}
 		fmt.Println(line)
-		writer.WriteString("+OK/r/n")
-		writer.Flush()
+		writer.WriteValue(resp.Value{
+			Type: resp.SimpleString,
+			Str:  "Ok",
+		})
 	}
 
 }
