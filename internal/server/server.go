@@ -7,7 +7,10 @@ import (
 
 	// "github.com/Eahtasham/go-redis/internal/commands"
 	// "github.com/Eahtasham/go-redis/internal/protocol/resp"
+	"github.com/Eahtasham/go-redis/internal/commands"
 	"github.com/Eahtasham/go-redis/internal/netlayer"
+	"github.com/Eahtasham/go-redis/internal/persistence"
+	"github.com/Eahtasham/go-redis/internal/protocol/resp"
 )
 
 type Server struct {
@@ -34,6 +37,9 @@ func New(addr string) *Server {
 
 func (s *Server) Start() error {
 	fmt.Println("Server Starting")
+	persistence.Replay("appendonly.aof", func(v resp.Value) {
+		commands.Dispatch(v)
+	})
 	// commands.Register("PING", func(args []string) resp.Value {
 	// 	return resp.Value{
 	// 		Type: resp.SimpleString,

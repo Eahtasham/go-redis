@@ -1,6 +1,9 @@
 package store
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Store struct {
 	mu   sync.RWMutex
@@ -50,6 +53,18 @@ func (s *Store) Delete(key string) bool {
 
 	if _, ok := s.data[key]; ok {
 		delete(s.data, key)
+		return true
+	}
+
+	return false
+}
+
+func (s *Store) SetExpiry(key string, ttl time.Duration) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if e, ok := s.data[key]; ok {
+		e.Expiry = time.Now().Add(ttl)
 		return true
 	}
 
