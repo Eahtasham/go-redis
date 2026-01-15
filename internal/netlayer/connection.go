@@ -27,7 +27,7 @@ func HandleConn(conn net.Conn) {
 			return
 		}
 		fmt.Println(line)
-		res := commands.Dispatch(line)
+		res := commands.DispatchWithContext(line, &commands.ClientContext{})
 		writer.WriteValue(res)
 	}
 
