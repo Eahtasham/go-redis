@@ -19,7 +19,7 @@ type Server struct {
 func New(addr string) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ln, err := netlayer.Newlistener(addr)
+	ln, err := netlayer.NewListener(addr)
 
 	if err != nil {
 		log.Fatal(err)

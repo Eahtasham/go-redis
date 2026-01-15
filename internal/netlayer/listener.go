@@ -12,7 +12,7 @@ type Listener struct {
 	wg sync.WaitGroup
 }
 
-func Newlistener(addr string) (*Listener, error) {
+func NewListener(addr string) (*Listener, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		// panic(err)
