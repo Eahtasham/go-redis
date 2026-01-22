@@ -1,26 +1,58 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
+
+	"github.com/Eahtasham/go-redis/internal/protocol/resp"
 )
 
-func send(conn net.Conn, reader *bufio.Reader, label, cmd string) {
-	fmt.Printf("\n[%s] Sending:\n%s", label, cmd)
-	_, err := conn.Write([]byte(cmd))
-	if err != nil {
-		fmt.Println("Write error:", err)
-		return
+func sendCommand(writer *resp.Writer, reader *resp.Reader, args ...string) resp.Value {
+	vals := make([]resp.Value, len(args))
+	for i, arg := range args {
+		vals[i] = resp.BulkValue(arg)
 	}
 
-	resp, err := reader.ReadString('\n')
+	err := writer.WriteValue(resp.ArrayValue(vals))
 	if err != nil {
-		fmt.Println("Read error:", err)
-		return
+		return resp.ErrorValue(fmt.Sprintf("Write error: %v", err))
 	}
-	fmt.Printf("[%s] Response: %s", label, resp)
+
+	response, err := reader.ReadValue()
+	if err != nil {
+		return resp.ErrorValue(fmt.Sprintf("Read error: %v", err))
+	}
+	return response
+}
+
+func formatResponse(v resp.Value) string {
+	switch v.Type {
+	case resp.SimpleString:
+		return fmt.Sprintf("+%s", v.Str)
+	case resp.Error:
+		return fmt.Sprintf("-%s", v.Str)
+	case resp.Integer:
+		return fmt.Sprintf(":%d", v.Int)
+	case resp.BulkString:
+		if v.Str == "" {
+			return "(nil)"
+		}
+		return fmt.Sprintf("\"%s\"", v.Str)
+	case resp.Array:
+		return fmt.Sprintf("[%d items]", len(v.Array))
+	}
+	return "unknown"
+}
+
+func test(writer *resp.Writer, reader *resp.Reader, expected string, args ...string) {
+	result := sendCommand(writer, reader, args...)
+	actual := formatResponse(result)
+	status := "PASS"
+	if expected != "" && actual != expected {
+		status = "FAIL"
+	}
+	fmt.Printf("[%s] %v -> %s\n", status, args, actual)
 }
 
 func main() {
@@ -31,26 +63,33 @@ func main() {
 	}
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
-	fmt.Println("Connected to Redis")
+	reader := resp.NewReader(conn)
+	writer := resp.NewWriter(conn)
 
-	// 1. Simple String (+)
-	send(conn, reader, "Simple String",
-		"*1\r\n$4\r\nPING\r\n")
+	fmt.Println("go-redis Integration Test")
+	fmt.Println("=========================")
 
-	// 2. Error (-)
-	send(conn, reader, "Error",
-		"*1\r\n$7\r\nINVALID\r\n")
+	test(writer, reader, "+PONG", "PING")
+	test(writer, reader, "\"hello\"", "PING", "hello")
+	test(writer, reader, "+OK", "SET", "mykey", "myvalue")
+	test(writer, reader, "\"myvalue\"", "GET", "mykey")
+	test(writer, reader, ":1", "EXISTS", "mykey")
+	test(writer, reader, ":1", "INCR", "counter")
+	test(writer, reader, ":2", "INCR", "counter")
+	test(writer, reader, ":3", "INCR", "counter")
+	test(writer, reader, "\"3\"", "GET", "counter")
+	test(writer, reader, ":1", "DEL", "mykey")
+	test(writer, reader, "(nil)", "GET", "mykey")
+	test(writer, reader, "", "FOOBAR") // Should be error
 
-	// 3. Integer (:)
-	send(conn, reader, "Integer",
-		"*2\r\n$4\r\nINCR\r\n$7\r\ncounter\r\n")
+	// Transaction test
+	fmt.Println("\nTransaction Test:")
+	test(writer, reader, "+OK", "MULTI")
+	test(writer, reader, "+QUEUED", "SET", "tx1", "value1")
+	test(writer, reader, "+QUEUED", "SET", "tx2", "value2")
+	test(writer, reader, "[2 items]", "EXEC")
+	test(writer, reader, "\"value1\"", "GET", "tx1")
+	test(writer, reader, "\"value2\"", "GET", "tx2")
 
-	// 4. Bulk String ($)
-	send(conn, reader, "Bulk String",
-		"*2\r\n$3\r\nGET\r\n$7\r\ncounter\r\n")
-
-	// 5. Array (*)
-	send(conn, reader, "Array",
-		"*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n")
+	fmt.Println("\nAll tests completed!")
 }

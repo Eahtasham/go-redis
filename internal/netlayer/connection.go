@@ -1,7 +1,7 @@
 package netlayer
 
 import (
-	"fmt"
+	"io"
 	"net"
 	"sync/atomic"
 
@@ -20,15 +20,19 @@ func HandleConn(conn net.Conn) {
 	reader := resp.NewReader(conn)
 	writer := resp.NewWriter(conn)
 
+	// Per-client context for transactions
+	ctx := &commands.ClientContext{}
+
 	for {
-		// Protocl layer will be implemented here
-		line, err := reader.ReadValue()
+		value, err := reader.ReadValue()
 		if err != nil {
+			if err != io.EOF {
+				// Log error if needed
+			}
 			return
 		}
-		fmt.Println(line)
-		res := commands.DispatchWithContext(line, &commands.ClientContext{})
+
+		res := commands.DispatchWithContext(value, ctx)
 		writer.WriteValue(res)
 	}
-
 }
