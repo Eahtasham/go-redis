@@ -34,6 +34,7 @@ You'll find:
   - [Transactions](#7-transactions)
 - [Project Structure](#-project-structure)
 - [Running Tests](#-running-tests)
+- [Benchmarks](#-benchmarks)
 - [What's Next](#-whats-next)
 
 ---
@@ -478,6 +479,137 @@ go run ./cmd/test_expiry
 # Verify AOF replay (restart server, then)
 go run ./cmd/verify_replay
 ```
+
+---
+
+## 📊 Benchmarks
+
+### Performance Comparison: go-redis vs Real Redis
+
+We benchmarked go-redis against the official Redis server to see how our learning implementation stacks up against the battle-tested original.
+
+**Test Configuration:**
+- 50 parallel clients
+- 10,000 total requests per command
+- 3-byte payload size
+
+#### Results Summary
+
+| Command | go-redis (ops/sec) | Real Redis (ops/sec) | go-redis % of Redis |
+|---------|-------------------|---------------------|---------------------|
+| **PING** | 86,356 | N/A | — |
+| **SET** | 54,343 | 111,111 | 49% |
+| **GET** | 86,178 | 105,263 | 82% |
+| **INCR** | 51,908 | 102,040 | 51% |
+| **LPUSH** | 5,886 | 80,000 | 7% |
+| **SADD** | 71,201 | 111,111 | 64% |
+
+#### Detailed go-redis Results
+
+```
+╔═══════════════════════════════════════════════════════════╗
+║              go-redis Benchmark Tool                       ║
+╚═══════════════════════════════════════════════════════════╝
+
+Server: localhost:6379
+Clients: 50, Requests: 10000, Data size: 3 bytes
+
+╔═══════════════════════════════════════════════════════════╗
+║                      SUMMARY                               ║
+╠═══════════════════════════════════════════════════════════╣
+║ Command    │      Ops/sec │  Avg Latency │   Total Time   ║
+╠═══════════════════════════════════════════════════════════╣
+║ PING       │      86356/s │     458.00µs │       0.12s    ║
+║ SET        │      54343/s │     860.00µs │       0.18s    ║
+║ GET        │      86178/s │     528.00µs │       0.12s    ║
+║ INCR       │      51908/s │     860.00µs │       0.19s    ║
+║ LPUSH      │       5886/s │    8304.00µs │       1.70s    ║
+║ SADD       │      71201/s │     626.00µs │       0.14s    ║
+╚═══════════════════════════════════════════════════════════╝
+```
+
+#### Real Redis Results (via redis-benchmark)
+
+```
+SET:    111,111 requests/sec   avg_latency: 0.283ms   p99: 1.119ms
+GET:    105,263 requests/sec   avg_latency: 0.290ms   p99: 1.199ms
+INCR:   102,040 requests/sec   avg_latency: 0.296ms   p99: 2.439ms
+LPUSH:   80,000 requests/sec   avg_latency: 0.364ms   p99: 2.239ms
+SADD:   111,111 requests/sec   avg_latency: 0.283ms   p99: 0.999ms
+```
+
+### Analysis
+
+**What's Working Well:**
+- **GET operations** achieve 82% of Redis performance—great for a learning project!
+- **SADD** shows solid 64% performance with set operations
+- **PING** at 86K ops/sec demonstrates efficient network handling
+
+**Areas for Improvement:**
+- **LPUSH** is significantly slower (7%)—likely due to list implementation or locking overhead
+- **SET/INCR** operations are around 50%—AOF persistence adds overhead compared to Redis's in-memory-only benchmark
+
+**Why the Difference?**
+1. **Single global lock** vs Redis's more sophisticated locking strategies
+2. **AOF persistence enabled** during benchmarks (Redis benchmark runs with `appendonly: no`)
+3. **Learning-focused code** prioritizing clarity over raw performance
+
+### How to Run Benchmarks
+
+#### 1. Benchmark Your go-redis
+
+```bash
+# Start the server
+go run ./cmd/server
+
+# In another terminal, run the benchmark
+go run ./cmd/benchmark -c 50 -n 10000
+
+# Available options:
+#   -h localhost   Server hostname
+#   -p 6379        Server port
+#   -c 50          Number of parallel clients
+#   -n 10000       Total requests
+#   -d 3           Data size in bytes
+#   -t all         Test type: set, get, incr, lpush, sadd, all
+
+# Examples:
+go run ./cmd/benchmark -c 100 -n 100000        # Heavy load test
+go run ./cmd/benchmark -c 50 -n 50000 -t set   # Just SET operations
+```
+
+#### 2. Compare with Real Redis
+
+**Option A: Using Docker (Recommended)**
+
+```bash
+# Start Redis in Docker (port 6380 to avoid conflict)
+docker run -d --name redis-test -p 6380:6379 redis:latest
+
+# Run our benchmark tool against real Redis
+go run ./cmd/benchmark -c 50 -n 10000 -p 6380
+
+# Run Redis's native benchmark (runs inside container for accurate results)
+docker exec redis-test redis-benchmark -c 50 -n 10000 -t set,get,incr,lpush,sadd
+
+# Cleanup
+docker stop redis-test && docker rm redis-test
+```
+
+**Option B: Local Redis Installation**
+
+```bash
+# Start real Redis on port 6380
+redis-server --port 6380
+
+# Benchmark real Redis
+redis-benchmark -h localhost -p 6380 -c 50 -n 10000 -t set,get,incr,lpush,sadd
+
+# Benchmark go-redis (same parameters)
+go run ./cmd/benchmark -c 50 -n 10000
+```
+
+> **Note:** When benchmarking Redis via Docker on Windows/Mac, network overhead can significantly impact results. For accurate comparisons, run redis-benchmark inside the container or use native Redis installation.
 
 ---
 
