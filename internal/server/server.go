@@ -78,6 +78,10 @@ func (s *Server) Start() error {
 		fmt.Printf("Replayed %d commands from AOF\n", count)
 	}
 
+	// Start background expiration sweeper
+	s.Store.StartExpirer()
+	fmt.Println("Active expiration enabled")
+
 	fmt.Println("Ready to accept connections")
 	return s.Listener.Serve(s.ctx, netlayer.HandleConn)
 }
@@ -88,6 +92,10 @@ func (s *Server) Shutdown() {
 	// Stop accepting new connections
 	s.cancel()
 	s.Listener.Close()
+
+	// Stop AOF and ensure all pending writes are flushed
+	// Stop background expiration sweeper
+	s.Store.StopExpirer()
 
 	// Stop AOF and ensure all pending writes are flushed
 	if s.AOF != nil {
