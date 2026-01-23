@@ -115,6 +115,8 @@ go run ./cmd/testclient
 
 ## 💻 Supported Commands
 
+### String Commands
+
 | Command | Syntax | Description |
 |---------|--------|-------------|
 | `PING` | `PING [message]` | Returns PONG or echoes message |
@@ -127,6 +129,35 @@ go run ./cmd/testclient
 | `INCR` | `INCR key` | Increment integer value by 1 |
 | `DECR` | `DECR key` | Decrement integer value by 1 |
 | `INCRBY` | `INCRBY key delta` | Increment by arbitrary integer |
+
+### List Commands
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `LPUSH` | `LPUSH key value [value ...]` | Insert at head (left) |
+| `RPUSH` | `RPUSH key value [value ...]` | Insert at tail (right) |
+| `LPOP` | `LPOP key [count]` | Remove and return from head |
+| `RPOP` | `RPOP key [count]` | Remove and return from tail |
+| `LRANGE` | `LRANGE key start stop` | Get range of elements |
+| `LLEN` | `LLEN key` | Get list length |
+| `LINDEX` | `LINDEX key index` | Get element at index |
+
+### Set Commands
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `SADD` | `SADD key member [member ...]` | Add members to set |
+| `SREM` | `SREM key member [member ...]` | Remove members from set |
+| `SMEMBERS` | `SMEMBERS key` | Get all members |
+| `SISMEMBER` | `SISMEMBER key member` | Check if member exists |
+| `SCARD` | `SCARD key` | Get set cardinality (size) |
+| `SUNION` | `SUNION key [key ...]` | Union of multiple sets |
+| `SINTER` | `SINTER key [key ...]` | Intersection of multiple sets |
+
+### Transaction Commands
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
 | `MULTI` | `MULTI` | Start transaction |
 | `EXEC` | `EXEC` | Execute queued commands |
 | `DISCARD` | `DISCARD` | Abort transaction |
@@ -455,12 +486,12 @@ go run ./cmd/verify_replay
 | Feature | Status |
 |---------|--------|
 | String commands | ✅ Done |
+| List commands (LPUSH, RPUSH, LPOP, RPOP, LRANGE, LLEN, LINDEX) | ✅ Done |
+| Set commands (SADD, SREM, SMEMBERS, SISMEMBER, SCARD, SUNION, SINTER) | ✅ Done |
 | TTL / Expiration | ✅ Done |
 | Active expiration sweeper | ✅ Done |
 | AOF persistence | ✅ Done |
 | Transactions (MULTI/EXEC) | ✅ Done |
-| List commands (LPUSH, RPUSH, etc.) | 🔜 Planned |
-| Set commands (SADD, SREM, etc.) | 🔜 Planned |
 | Hash commands (HSET, HGET, etc.) | 🔜 Planned |
 | Pub/Sub | 🔜 Planned |
 | WATCH for optimistic locking | 🔜 Planned |

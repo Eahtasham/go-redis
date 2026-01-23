@@ -18,8 +18,21 @@ func RegisterAll() {
 	commands.Register("DECR", Decr)
 	commands.Register("INCRBY", IncrBy)
 
-	// TODO: Add more commands as they are implemented
-	// List commands: LPUSH, RPUSH, LPOP, RPOP, LRANGE, LLEN
-	// Set commands: SADD, SREM, SMEMBERS, SISMEMBER
-	// Hash commands: HSET, HGET, HDEL, HGETALL
+	// List commands
+	commands.Register("LPUSH", LPush)
+	commands.Register("RPUSH", RPush)
+	commands.Register("LPOP", LPop)
+	commands.Register("RPOP", RPop)
+	commands.Register("LRANGE", LRange)
+	commands.Register("LLEN", LLen)
+	commands.Register("LINDEX", LIndex)
+
+	// Set commands
+	commands.Register("SADD", SAdd)
+	commands.Register("SREM", SRem)
+	commands.Register("SMEMBERS", SMembers)
+	commands.Register("SISMEMBER", SIsMember)
+	commands.Register("SCARD", SCard)
+	commands.Register("SUNION", SUnion)
+	commands.Register("SINTER", SInter)
 }
