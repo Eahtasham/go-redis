@@ -6,6 +6,7 @@ type AOF struct {
 	file   *os.File
 	ch     chan []byte
 	stopCh chan struct{}
+	doneCh chan struct{} // signals when background writer has finished
 }
 
 func NewAOF(path string) (*AOF, error) {
@@ -19,20 +20,29 @@ func NewAOF(path string) (*AOF, error) {
 		file:   f,
 		ch:     make(chan []byte, 1024),
 		stopCh: make(chan struct{}),
+		doneCh: make(chan struct{}),
 	}, nil
 }
 
 func (a *AOF) Run() {
 	go func() {
+		defer close(a.doneCh)
 		for {
 			select {
 			case data := <-a.ch:
 				a.file.Write(data)
 			case <-a.stopCh:
-				a.file.Sync()
-				a.file.Close()
-				return
-
+				// Drain remaining commands before closing
+				for {
+					select {
+					case data := <-a.ch:
+						a.file.Write(data)
+					default:
+						a.file.Sync()
+						a.file.Close()
+						return
+					}
+				}
 			}
 		}
 	}()
@@ -44,4 +54,10 @@ func (a *AOF) Append(data []byte) {
 	default:
 		// drop or block later; for now, drop is acceptable
 	}
+}
+
+// Stop signals the background writer to stop and waits for completion
+func (a *AOF) Stop() {
+	close(a.stopCh)
+	<-a.doneCh // wait for background writer to finish
 }

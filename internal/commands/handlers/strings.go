@@ -5,15 +5,31 @@ import (
 	"time"
 
 	"github.com/Eahtasham/go-redis/internal/engine/store"
+	"github.com/Eahtasham/go-redis/internal/persistence"
 	"github.com/Eahtasham/go-redis/internal/protocol/resp"
 )
 
 // Global store instance - will be initialized at server startup
 var Store *store.Store
 
+// Global AOF instance - will be initialized at server startup
+var AOF *persistence.AOF
+
 // InitStore sets the global store instance
 func InitStore(s *store.Store) {
 	Store = s
+}
+
+// InitAOF sets the global AOF instance for persistence
+func InitAOF(a *persistence.AOF) {
+	AOF = a
+}
+
+// logCommand logs a command to AOF if persistence is enabled
+func logCommand(cmd string, args ...string) {
+	if AOF != nil {
+		AOF.Append(persistence.EncodeCommand(cmd, args))
+	}
 }
 
 // Ping handles the PING command
@@ -62,6 +78,9 @@ func Set(args []string) resp.Value {
 		}
 	}
 
+	// Log to AOF after successful execution
+	logCommand("SET", args...)
+
 	return resp.SimpleValue("OK")
 }
 
@@ -94,6 +113,8 @@ func Del(args []string) resp.Value {
 	for _, key := range args {
 		if Store.Delete(key) {
 			count++
+			// Log each successful delete
+			logCommand("DEL", key)
 		}
 	}
 
@@ -129,6 +150,8 @@ func Expire(args []string) resp.Value {
 	}
 
 	if Store.SetExpiry(key, time.Duration(seconds)*time.Second) {
+		// Log to AOF after successful expiry set
+		logCommand("EXPIRE", args...)
 		return resp.IntValue(1)
 	}
 	return resp.IntValue(0)
@@ -163,7 +186,12 @@ func Incr(args []string) resp.Value {
 	if len(args) != 1 {
 		return resp.ErrorValue("ERR wrong number of arguments for 'incr' command")
 	}
-	return incrBy(args[0], 1)
+	result := incrBy(args[0], 1)
+	if result.Type != resp.Error {
+		// Log the resulting SET command for idempotent replay
+		logCommand("SET", args[0], strconv.FormatInt(result.Int, 10))
+	}
+	return result
 }
 
 // Decr handles the DECR command
@@ -171,7 +199,12 @@ func Decr(args []string) resp.Value {
 	if len(args) != 1 {
 		return resp.ErrorValue("ERR wrong number of arguments for 'decr' command")
 	}
-	return incrBy(args[0], -1)
+	result := incrBy(args[0], -1)
+	if result.Type != resp.Error {
+		// Log the resulting SET command for idempotent replay
+		logCommand("SET", args[0], strconv.FormatInt(result.Int, 10))
+	}
+	return result
 }
 
 // IncrBy handles the INCRBY command
@@ -185,7 +218,12 @@ func IncrBy(args []string) resp.Value {
 		return resp.ErrorValue("ERR value is not an integer or out of range")
 	}
 
-	return incrBy(args[0], delta)
+	result := incrBy(args[0], delta)
+	if result.Type != resp.Error {
+		// Log the resulting SET command for idempotent replay
+		logCommand("SET", args[0], strconv.FormatInt(result.Int, 10))
+	}
+	return result
 }
 
 // incrBy is the internal helper for INCR/DECR/INCRBY
